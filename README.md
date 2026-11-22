@@ -28,12 +28,47 @@ here and only *calls* corral tooling.
 
 ## Prereqs
 
-- `corral` CLI with the macos plugin; a macOS VM it manages
-  (`KVM`, `KCTX=karnataka-k3s`, `KNS=corral-vms`).
-- `tesseract-ocr` + `python3-pil` on this machine.
-- Bitwarden session for password steps:
-  `export BW_SESSION="$(cat /tmp/bw_session_private)"`.
+- `corral` CLI with the macos plugin; a macOS VM it manages. corral also
+  creates the per-VM SSH key the scripts use, at
+  `~/.cache/corral/macos/sequoia/<KVM>-ssh/id_ed25519`.
+- `virtctl` (KubeVirt) and `ssh` on this machine: every script reaches the
+  guest with `ssh` through `virtctl port-forward`. The scripts do not check
+  for them, so a missing one surfaces as an SSH failure partway through.
+- `tesseract-ocr` + `python3-pil` on this machine (the console driver).
+- A console driver. `messages-signin.sh` and `fda-grant.sh` run the driver
+  named by `CORRAL_CONSOLE`, which defaults to corral's copy at
+  `$HOME/dev/corral/scripts/macos-console/driver.py`. Without a corral
+  checkout there, point `CORRAL_CONSOLE` at this repo's
+  `scripts/console/driver.py`.
+- Bitwarden CLI (`bw`) with an unlocked session for the password steps
+  (`messages-signin.sh` and `fda-grant.sh`). Export its session key as
+  `BW_SESSION`; the scripts exit if it is unset.
 - 2FA codes come from the operator's Apple device at the prompt.
+
+### Settings
+
+Every script reads these environment variables. The defaults match the
+original operator's setup, so override the ones marked *yours* before you
+run anything.
+
+| Variable | Default | Used by | Meaning |
+| --- | --- | --- | --- |
+| `KVM` | `messages` | all | Name of the macOS VM (and VMI) corral manages |
+| `KCTX` | `karnataka-k3s` | all | kubectl context for the cluster running the VM |
+| `KNS` | `corral-vms` | all | Namespace of the VM |
+| `CORRAL_CONSOLE` | `$HOME/dev/corral/scripts/macos-console/driver.py` | `messages-signin.sh`, `fda-grant.sh` | Console driver to run |
+| `APPLE_EMAIL` | an operator-specific address — *yours* | `messages-signin.sh` | Apple Account to sign in |
+| `APPLE_ITEM` | an operator-specific vault item — *yours* | `messages-signin.sh` | Bitwarden item holding that account's password |
+| `MAC_ITEM` | `macos-beeper VM` | `messages-signin.sh`, `fda-grant.sh` | Bitwarden item holding the guest Mac account password (entered at the "Enter Mac Password" and admin auth prompts) |
+
+For example:
+
+```bash
+export BW_SESSION=...   # from `bw unlock`
+KVM=messages KCTX=<your-context> KNS=<your-namespace> \
+  APPLE_EMAIL=<you@example.com> APPLE_ITEM=<vault item> \
+  scripts/beeper/messages-signin.sh
+```
 
 ## Order of operations
 
