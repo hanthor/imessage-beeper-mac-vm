@@ -9,6 +9,10 @@
 # Requires BW_SESSION exported (one admin auth). Both binaries must end ON:
 # tccd attributes access to the *responsible* binary (bbctl), not the leaf.
 set -u
+# Per-run scratch dir: fixed /tmp names let another local user pre-link them,
+# and screenshots of credential prompts must not outlive the run.
+SHOTS="$(mktemp -d)"
+trap 'rm -rf "$SHOTS"' EXIT
 KVM="${KVM:-messages}"
 KCTX="${KCTX:-karnataka-k3s}"
 KNS="${KNS:-corral-vms}"
@@ -70,16 +74,16 @@ sleep 3
 "$DRIVER" wait "Allow the applications" 60 || { echo "no FDA list" >&2; exit 1; }
 
 # Ensure bbctl entry exists, then select-row + Space to flip it ON.
-if ! "$DRIVER" ocr /tmp/fda-list.png | grep -qi bbctl; then
-  "$DRIVER" shot /tmp/fda-list.png
+if ! "$DRIVER" ocr "$SHOTS/fda-list.png" | grep -qi bbctl; then
+  "$DRIVER" shot "$SHOTS/fda-list.png"
   goto_add "$BBCTL_PATH"
   auth_once
 fi
-"$DRIVER" shot /tmp/fda-list.png
+"$DRIVER" shot "$SHOTS/fda-list.png"
 BBCTL_ROW="$(python3 -c "
 import sys; sys.path.insert(0, '$HOME/dev/corral/scripts/macos-console')
 import driver
-w = driver.find_text('/tmp/fda-list.png', 'bbctl')
+w = driver.find_text('$SHOTS/fda-list.png', 'bbctl')
 print('%d %d' % w if w else '')
 ")"
 [ -n "$BBCTL_ROW" ] || { echo "bbctl row not found" >&2; exit 1; }
@@ -87,14 +91,14 @@ print('%d %d' % w if w else '')
 "$DRIVER" press $BBCTL_ROW 1 0.5
 "$DRIVER" key SPC
 sleep 6
-if "$DRIVER" shot /tmp/fda-auth.png && \
-   "$DRIVER" ocr /tmp/fda-auth.png | grep -qi "Enter your password"; then
+if "$DRIVER" shot "$SHOTS/fda-auth.png" && \
+   "$DRIVER" ocr "$SHOTS/fda-auth.png" | grep -qi "Enter your password"; then
   auth_once
 fi
 
 # Ensure mautrix entry exists (new entries land ON).
-"$DRIVER" shot /tmp/fda-list.png
-if ! "$DRIVER" ocr /tmp/fda-list.png | grep -qi mautrix; then
+"$DRIVER" shot "$SHOTS/fda-list.png"
+if ! "$DRIVER" ocr "$SHOTS/fda-list.png" | grep -qi mautrix; then
   goto_add "$MATRIX_PATH"
   auth_once
 fi

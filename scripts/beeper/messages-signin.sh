@@ -8,6 +8,10 @@
 # Requires BW_SESSION exported. If iMessage activation fails on Contact Key
 # Verification, toggle CKV off on an existing device and rerun.
 set -u
+# Per-run scratch dir: fixed /tmp names let another local user pre-link them,
+# and screenshots of credential prompts must not outlive the run.
+SHOTS="$(mktemp -d)"
+trap 'rm -rf "$SHOTS"' EXIT
 KVM="${KVM:-messages}"
 KCTX="${KCTX:-karnataka-k3s}"
 KNS="${KNS:-corral-vms}"
@@ -54,7 +58,7 @@ sleep 3
 sleep 2
 "$DRIVER" type "$APPLE_EMAIL"
 sleep 3
-"$DRIVER" ocr /tmp/im-email.png | grep -qi "$(printf '%s' "$APPLE_EMAIL" | cut -d@ -f1)" \
+"$DRIVER" ocr "$SHOTS/im-email.png" | grep -qi "$(printf '%s' "$APPLE_EMAIL" | cut -d@ -f1)" \
   || { echo "email not echoed; refocus and retry" >&2; exit 1; }
 "$DRIVER" key RET
 "$DRIVER" wait "Password" 120 || { echo "no password pane" >&2; exit 1; }

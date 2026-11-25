@@ -68,7 +68,8 @@ SHIFTED = {
 
 
 def _vnc_connect():
-    portfile = tempfile.mktemp(prefix="vncport-", dir="/tmp")
+    fd, portfile = tempfile.mkstemp(prefix="vncport-", dir="/tmp")
+    os.close(fd)
     proxy = subprocess.Popen(
         ["virtctl", "--context", CTX, "-n", NS, "vnc", VM,
          "--proxy-only", "--address=127.0.0.1", "--port=0"],
